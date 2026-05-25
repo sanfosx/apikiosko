@@ -6,18 +6,18 @@ import admin from 'firebase-admin';
 
 try {
     if (!admin.apps.length) {
-        if (import.meta.env.FIREBASE_PROJECT_ID && import.meta.env.FIREBASE_PRIVATE_KEY && import.meta.env.FIREBASE_CLIENT_EMAIL) {
+        if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
             console.log('Initializing Firebase Admin with individual environment variables');
             admin.initializeApp({
                 credential: admin.credential.cert({
-                    projectId: import.meta.env.FIREBASE_PROJECT_ID,
-                    clientEmail: import.meta.env.FIREBASE_CLIENT_EMAIL,
-                    privateKey: import.meta.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+                    projectId: process.env.FIREBASE_PROJECT_ID,
+                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
                 })
             });
-        } else if (import.meta.env.FIREBASE_SERVICE_ACCOUNT_JSON && import.meta.env.FIREBASE_SERVICE_ACCOUNT_JSON.trim().length > 0) {
+        } else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON && process.env.FIREBASE_SERVICE_ACCOUNT_JSON.trim().length > 0) {
             console.log('Initializing Firebase Admin with FIREBASE_SERVICE_ACCOUNT_JSON');
-            const serviceAccount = JSON.parse(import.meta.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
             });
