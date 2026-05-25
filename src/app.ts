@@ -24,6 +24,11 @@ app.get('/health', (req: Request, res: Response) => {
     (res as any).status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Root endpoint to verify server status
+app.get('/', (req: Request, res: Response) => {
+    (res as any).status(200).json({ status: 'OnlineAll API Server Running', timestamp: new Date().toISOString() });
+});
+
 // ROUTING FIX:
 // 1. Support requests that include '/api' (Standard local setup: http://localhost:3001/api/products)
 app.use('/api', mainRouter);
