@@ -19,6 +19,7 @@ app.use(compression() as any);
 const allowedOrigins = [
   'https://apikiosko.vercel.app',
   'https://online-all-24-05-2026.vercel.app',
+  'https://kioskapp-nu.vercel.app/'
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:3001'
