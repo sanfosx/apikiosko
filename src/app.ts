@@ -11,16 +11,19 @@ import { logger } from './utils/logger';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 8080;
 
-app.use(helmet() as any);
+app.use(helmet({ 
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}) as any);
 app.use(compression() as any);
 
 const allowedOrigins = [
-  '*',
   'https://apikiosko.vercel.app',
   'https://online-all-24-05-2026.vercel.app',
-  'https://kioskapp-nu.vercel.app/'
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:3001'
@@ -28,7 +31,7 @@ const allowedOrigins = [
 
 app.use(cors({ 
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.run.app') || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
