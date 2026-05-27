@@ -1,32 +1,44 @@
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { db } from '../config/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-export const getAllSales = async (req: Request, res: Response) => {
+export const getAllSales = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const snapshot = await db.collection('sales').orderBy('date', 'desc').get();
+    const limit = parseInt(req.query.limit as string) || 50;
+    // Sales shouldn't be cached aggressively as they update frequently, but a short cache is okay for intensive load.
+    res.set('Cache-Control', 'public, max-age=30');
+
+    let query = db.collection('sales').orderBy('date', 'desc').limit(limit);
+
+    if (req.query.startAfter) {
+      const lastDoc = await db.collection('sales').doc(req.query.startAfter as string).get();
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc);
+      }
+    }
+
+    const snapshot = await query.get();
     const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(sales);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch sales' });
+    next(error);
   }
 };
 
-export const getSaleById = async (req: Request, res: Response) => {
+export const getSaleById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const doc = await db.collection('sales').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Sale not found' });
+    res.set('Cache-Control', 'public, max-age=120');
     res.json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch sale' });
+    next(error);
   }
 };
 
-export const createSale = async (req: AuthRequest, res: Response) => {
+export const createSale = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { items, clientId, clientName, paymentMethod, discount } = req.body;
   const sellerId = req.user?.uid; // From Auth Middleware
 
@@ -142,12 +154,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const createdSaleDoc = await saleRef.get();
     res.status(201).json({ id: createdSaleDoc.id, ...createdSaleDoc.data() });
   } catch (error: any) {
-    console.error("Transaction Error:", error);
-    res.status(500).json({ error: error.message || 'Failed to create sale' });
+    next(error);
   }
 };
 
-export const cancelSale = async (req: AuthRequest, res: Response) => {
+export const cancelSale = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.uid;
 
@@ -220,7 +231,6 @@ export const cancelSale = async (req: AuthRequest, res: Response) => {
     
     res.json(result);
   } catch (error: any) {
-    console.error("Cancellation Error:", error);
-    res.status(500).json({ error: error.message || 'Failed to cancel sale' });
+    next(error);
   }
 };
