@@ -1,32 +1,45 @@
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { db } from '../config/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-export const getAllProducts = async (req: Request, res: Response) => {
+export const getAllProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const snapshot = await db.collection('products').orderBy('name').get();
+    const limit = parseInt(req.query.limit as string) || 50;
+    
+    // Configurar Cache-Control
+    res.set('Cache-Control', 'public, max-age=300');
+
+    let query = db.collection('products').orderBy('name').limit(limit);
+
+    if (req.query.startAfter) {
+      const lastDoc = await db.collection('products').doc(req.query.startAfter as string).get();
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc);
+      }
+    }
+
+    const snapshot = await query.get();
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(products);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch products' });
+    next(error);
   }
 };
 
-export const getProductById = async (req: Request, res: Response) => {
+export const getProductById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const doc = await db.collection('products').doc(req.params.id).get();
     if (!doc.exists) return res.status(404).json({ error: 'Product not found' });
+    res.set('Cache-Control', 'public, max-age=60');
     res.json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch product' });
+    next(error);
   }
 };
 
-export const createProduct = async (req: AuthRequest, res: Response) => {
+export const createProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { 
     barcode, name, price, costPrice, stock, categoryId,
     promotionPrice, promotionEndDate, promotionDescription,
@@ -70,12 +83,11 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
     const docRef = await db.collection('products').add(newProduct);
     res.status(201).json({ id: docRef.id, ...newProduct });
   } catch (error: any) {
-    console.error("Create Product Error:", error);
-    res.status(500).json({ error: error.message || 'Failed to create product' });
+    next(error);
   }
 };
 
-export const updateProduct = async (req: AuthRequest, res: Response) => {
+export const updateProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const { 
     barcode, name, price, costPrice, stock, categoryId, reason, actionType,
@@ -132,12 +144,11 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     const updatedDoc = await productRef.get();
     res.json({ id: updatedDoc.id, ...updatedDoc.data() });
   } catch (error: any) {
-    console.error("Update Product Error:", error);
-    res.status(500).json({ error: error.message || 'Failed to update product' });
+    next(error);
   }
 };
 
-export const deleteProduct = async (req: Request, res: Response) => {
+export const deleteProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const productRef = db.collection('products').doc(req.params.id);
     if (!(await productRef.get()).exists) {
@@ -146,7 +157,6 @@ export const deleteProduct = async (req: Request, res: Response) => {
     await productRef.delete();
     res.status(204).send();
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to delete product' });
+    next(error);
   }
 };
