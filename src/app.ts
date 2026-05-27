@@ -17,6 +17,7 @@ app.use(helmet() as any);
 app.use(compression() as any);
 
 const allowedOrigins = [
+  '*',
   'https://apikiosko.vercel.app',
   'https://online-all-24-05-2026.vercel.app',
   'https://kioskapp-nu.vercel.app/'
