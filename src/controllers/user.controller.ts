@@ -1,30 +1,40 @@
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { db, auth } from '../config/firebase';
 
-export const getAllUsers = async (req: Request, res: Response) => {
+export const getAllUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const snapshot = await db.collection('users').orderBy('name').get();
+    const limit = parseInt(req.query.limit as string) || 50;
+    res.set('Cache-Control', 'private, max-age=60'); // Users data shouldn't be publicly cached long
+
+    let query = db.collection('users').orderBy('name').limit(limit);
+
+    if (req.query.startAfter) {
+      const lastDoc = await db.collection('users').doc(req.query.startAfter as string).get();
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc);
+      }
+    }
+
+    const snapshot = await query.get();
     const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     (res as any).json(users);
   } catch (error) {
-    console.error(error);
-    (res as any).status(500).json({ error: 'Failed to fetch users' });
+    next(error);
   }
 };
 
-export const getUserById = async (req: Request, res: Response) => {
+export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const doc = await db.collection('users').doc((req as any).params.id).get();
     if (!doc.exists) return (res as any).status(404).json({ error: 'User not found' });
     (res as any).json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error(error);
-    (res as any).status(500).json({ error: 'Failed to fetch user' });
+    next(error);
   }
 };
 
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password, name, phone, role } = (req as any).body;
 
   if (!email || !password || !name) {
@@ -54,12 +64,11 @@ export const createUser = async (req: Request, res: Response) => {
 
     (res as any).status(201).json({ id: userRecord.uid, ...userData });
   } catch (error: any) {
-    console.error("Error creating user:", error);
-    (res as any).status(500).json({ error: error.message || 'Failed to create user' });
+    next(error);
   }
 };
 
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = (req as any).params;
   const { name, phone, role, isActive } = (req as any).body;
   
@@ -96,12 +105,11 @@ export const updateUser = async (req: Request, res: Response) => {
     const updatedDoc = await userRef.get();
     (res as any).json({ id: updatedDoc.id, ...updatedDoc.data() });
   } catch (error) {
-    console.error(error);
-    (res as any).status(500).json({ error: 'Failed to update user' });
+    next(error);
   }
 };
 
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = (req as any).params;
   try {
     // 1. Delete from Auth
@@ -120,7 +128,6 @@ export const deleteUser = async (req: Request, res: Response) => {
     
     (res as any).status(204).send();
   } catch (error: any) {
-    console.error(error);
-    (res as any).status(500).json({ error: error.message || 'Failed to delete user' });
+    next(error);
   }
 };
